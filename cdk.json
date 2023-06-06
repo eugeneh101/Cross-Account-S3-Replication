@@ -1,0 +1,13 @@
+{
+    "app": "python3 app.py",
+    "context": {
+        "environment": {
+            "AWS_REGION": "us-east-1",
+            "S3_REPLICATION_ROLE_NAME": "cross-account-replication-role",
+            "SOURCE_BUCKET_NAME": "s3-source-bucket-cdk",
+            "DESTINATION_BUCKET_EXISTS": true,
+            "DESTINATION_BUCKET_NAME": "s3-destination-bucket-cdk",
+            "DESTINATION_BUCKET_ACCOUNT": "000000000000"
+        }
+    }
+}
