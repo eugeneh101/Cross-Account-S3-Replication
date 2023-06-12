@@ -6,9 +6,11 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-class CrossAccountS3ReplicationStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, environment: dict, **kwargs) -> None:
+class CrossAccountS3ReplicationStack(Stack):
+    def __init__(
+        self, scope: Construct, construct_id: str, environment: dict, **kwargs
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.s3_cross_account_replication_role = iam.Role(
@@ -39,7 +41,9 @@ class CrossAccountS3ReplicationStack(Stack):
             )
         )
         s3_bucket_destination = s3.Bucket.from_bucket_arn(
-            self, "S3BucketDestination", bucket_arn=f"arn:aws:s3:::{environment['DESTINATION_BUCKET_NAME']}"
+            self,
+            "S3BucketDestination",
+            bucket_arn=f"arn:aws:s3:::{environment['DESTINATION_BUCKET_NAME']}",
         )
         self.s3_cross_account_replication_role.add_to_policy(
             iam.PolicyStatement(
@@ -53,15 +57,17 @@ class CrossAccountS3ReplicationStack(Stack):
             )
         )
         if environment["DESTINATION_BUCKET_EXISTS"]:
-            self.s3_bucket_source.node.default_child.replication_configuration = s3.CfnBucket.ReplicationConfigurationProperty(
-                role=self.s3_cross_account_replication_role.role_arn,
-                rules=[
-                    s3.CfnBucket.ReplicationRuleProperty(
-                        destination=s3.CfnBucket.ReplicationDestinationProperty(
-                            bucket=s3_bucket_destination.bucket_arn,
-                            account=environment["DESTINATION_BUCKET_ACCOUNT"],
-                        ),
-                        status="Enabled"
-                    )
-                ],
+            self.s3_bucket_source.node.default_child.replication_configuration = (
+                s3.CfnBucket.ReplicationConfigurationProperty(
+                    role=self.s3_cross_account_replication_role.role_arn,
+                    rules=[
+                        s3.CfnBucket.ReplicationRuleProperty(
+                            destination=s3.CfnBucket.ReplicationDestinationProperty(
+                                bucket=s3_bucket_destination.bucket_arn,
+                                account=environment["DESTINATION_BUCKET_ACCOUNT"],
+                            ),
+                            status="Enabled",
+                        )
+                    ],
+                )
             )
