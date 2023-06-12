@@ -8,7 +8,7 @@
             "DESTINATION_BUCKET_EXISTS": true,
             "DESTINATION_BUCKET_NAME": "s3-destination-bucket-cdk",
             "DESTINATION_BUCKET_ACCOUNT": "000000000000",
-            "DESTINATION_BUCKET_PREFIX": "some_prefix"
+            "DESTINATION_BUCKET_PREFIX": "some_prefix/another_prefix"
         }
     }
 }
