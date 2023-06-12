@@ -27,7 +27,7 @@ class CrossAccountS3ReplicationStack(Stack):
             bucket_name=environment["SOURCE_BUCKET_NAME"],
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
-            versioned=True,  # if versioning disabled, then expired files are deleted
+            versioned=True,  # need to enable bucket versioning for S3 bucket replication
         )
 
         # connect AWS resources
@@ -36,7 +36,10 @@ class CrossAccountS3ReplicationStack(Stack):
                 actions=["s3:ListBucket", "s3:Get*"],
                 resources=[
                     self.s3_bucket_source.bucket_arn,
-                    self.s3_bucket_source.arn_for_objects("*"),
+                    # self.s3_bucket_source.arn_for_objects("*"),
+                    self.s3_bucket_source.arn_for_objects(
+                        f"{environment['DESTINATION_BUCKET_PREFIX']}/*"
+                    ),
                 ],
             )
         )
@@ -47,7 +50,12 @@ class CrossAccountS3ReplicationStack(Stack):
         )
         self.s3_cross_account_replication_role.add_to_policy(
             iam.PolicyStatement(
-                resources=[s3_bucket_destination.arn_for_objects("*")],
+                resources=[
+                    # s3_bucket_destination.arn_for_objects("*")
+                    s3_bucket_destination.arn_for_objects(
+                        f"{environment['DESTINATION_BUCKET_PREFIX']}/*"
+                    )
+                ],
                 actions=[
                     "s3:ReplicateObject",
                     "s3:ReplicateDelete",
@@ -67,6 +75,7 @@ class CrossAccountS3ReplicationStack(Stack):
                                 account=environment["DESTINATION_BUCKET_ACCOUNT"],
                             ),
                             status="Enabled",
+                            prefix=environment["DESTINATION_BUCKET_PREFIX"],
                         )
                     ],
                 )
