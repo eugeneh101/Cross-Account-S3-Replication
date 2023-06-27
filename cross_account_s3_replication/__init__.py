@@ -3,11 +3,17 @@ from aws_cdk import (
     RemovalPolicy,
     Size,
     Stack,
+    aws_cloudwatch as cloudwatch,
+    aws_cloudwatch_actions as cloudwatch_actions,
+    aws_events as events,
+    aws_events_targets as event_targets,
     aws_iam as iam,
     aws_lambda as _lambda,
     aws_lambda_event_sources as lambda_event_sources,
     aws_s3 as s3,
     aws_s3_notifications as s3n,
+    aws_sns as sns,
+    aws_sns_subscriptions as sns_subs,
     aws_sqs as sqs,
 )
 from constructs import Construct
@@ -50,6 +56,19 @@ class CrossAccountS3ReplicationStack(Stack):
                 resources=["*"],
             )
         )
+        self.s3_replication_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueUrl",
+                    "sqs:GetQueueAttributes",
+                ],
+                resources=["*"],
+            )
+        )
+        # prevent any changes to the policies, equivalent to mutable=False
+        self.s3_replication_role = self.s3_replication_role.without_policy_updates()
 
         self.s3_bucket_source = s3.Bucket(
             self,
@@ -82,7 +101,6 @@ class CrossAccountS3ReplicationStack(Stack):
             },
         )
 
-        ### add monitoring
         self.s3_replication_lambda = _lambda.Function(
             self,
             "S3ReplicationLambda",
@@ -109,6 +127,27 @@ class CrossAccountS3ReplicationStack(Stack):
             },
             role=self.s3_replication_role,
         )
+        self.alarm_lambda = _lambda.Function(
+            self,
+            "AlarmLambda",
+            function_name="alarm-lambda",  # hard coded
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            code=_lambda.InlineCode("def lambda_handler(event, context): print(event)"),
+            handler="index.lambda_handler",
+            role=self.s3_replication_role,
+        )
+
+        # having 2 targets for fun: SNS is direct, Eventbridge is indirect
+        self.alarm_topic = sns.Topic(
+            self, "AlarmTopic", topic_name="alarm-topic"  # hard coded
+        )
+        self.alarm_action = cloudwatch_actions.SnsAction(topic=self.alarm_topic)
+        self.event_rule_to_trigger_alarm_lambda = events.Rule(
+            self,
+            "EventRuleToTriggerAlarmLambda",
+            rule_name="alarm-rule",  # hard coded
+            event_bus=None,  # want "default" bus
+        )
 
         # connect AWS resources together
         self.s3_bucket_source.add_event_notification(
@@ -119,5 +158,33 @@ class CrossAccountS3ReplicationStack(Stack):
             lambda_event_sources.SqsEventSource(
                 self.s3_notifications_queue,
                 batch_size=1,  # hard coded to simplify if Lambda fails to process SQS message
+            )
+        )
+        self.lambda_alarm = cloudwatch.Alarm(
+            self,
+            "LambdaAlarm",
+            alarm_name=environment["LAMBDA_FUNCTION_NAME"] + "-alarm",  # hard coded
+            alarm_description="If the replication Lambda fails, notify me",
+            metric=self.s3_replication_lambda.metric_errors(
+                statistic="sum", period=Duration.minutes(1)  # hard coded
+            ),
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            threshold=0,
+            evaluation_periods=1,
+            treat_missing_data=cloudwatch.TreatMissingData.IGNORE,
+        )
+        self.lambda_alarm.add_alarm_action(self.alarm_action)
+        self.lambda_alarm.add_ok_action(self.alarm_action)
+        self.alarm_topic.add_subscription(
+            sns_subs.LambdaSubscription(self.alarm_lambda)
+        )
+        self.event_rule_to_trigger_alarm_lambda.add_event_pattern(
+            source=["aws.cloudwatch"],
+            detail_type=["CloudWatch Alarm State Change"],
+            resources=[self.lambda_alarm.alarm_arn],
+        )
+        self.event_rule_to_trigger_alarm_lambda.add_target(
+            event_targets.LambdaFunction(
+                self.alarm_lambda,  # dead_letter_queue=..., retry_attempts=2
             )
         )
