@@ -4,11 +4,15 @@
         "environment": {
             "AWS_REGION": "us-east-1",
             "S3_REPLICATION_ROLE_NAME": "cross-account-replication-role",
+            "QUEUE_NAME": "s3_event_notifications_for_replication",
+            "LAMBDA_FUNCTION_NAME": "s3-replication-lamba",
+            "LAMBDA_RUNTIME_IN_SECONDS": 900,
+            "LAMBDA_MEMORY_IN_MB": 10240,
+            "LAMBDA_EPHEMERAL_STORAGE_IN_MB": 10240,
+            "CREDENTIALS_SECRET_NAME": "cross-account-creds",
             "SOURCE_BUCKET_NAME": "s3-source-bucket-cdk",
-            "DESTINATION_BUCKET_EXISTS": true,
             "DESTINATION_BUCKET_NAME": "s3-destination-bucket-cdk",
-            "DESTINATION_BUCKET_ACCOUNT": "000000000000",
-            "DESTINATION_BUCKET_PREFIX": "some_prefix/another_prefix"
+            "DESTINATION_BUCKET_PREFIX": "company/Inbound"
         }
     }
 }
